@@ -32,7 +32,26 @@ What it wont do:
 
 - ### A web version will be available soon. 
 
+------
 
+#### QUICK start and test
+
+
+	git clone https://github.com/amillard/tax_myPHAGE
+
+	cd tax_myPHAGE
+
+	mamba install  -c conda-forge -c bioconda biopython pandas icecream networkx tqdm openpyxl matplotlib
+
+	python tax_myPHAGE.py -i test.fna -t 8 
+
+
+This should check the required software is installed and give a warning if not. It will also download the required fasta database and MASH file for comparison. These will be installed in the cloned tax_myPHAGE directory. If you download manually then please move them into tax_myPHAGE  directory.
+
+
+Output of the test should have the following lines at the bottom 
+
+ ![example](/img/example_result1.png)
 
 
 ## Requirements 
@@ -40,8 +59,6 @@ What it wont do:
 ----------
 
 It can be run on a standard laptop in a reasonable time. 
-
-
 
 
 ### MASH  
@@ -96,35 +113,33 @@ Again will download a version if none is not detected
 
 ### Run with 
 
-	python tax_myPHAGE.py  --input input.fa 
+usage: tax_myPHAGE.py [-h] [-v] [-t THREADS] -i IN_FASTA [-db ICTV_DB] [--mash_index MASH_INDEX] [--VMR VMR_FILE] [-p PREFIX] [-d DIST] [--no-figures] [-o OUTPUT]
 
-or 
+Takes a phage genome as as fasta file and compares against all phage genomes that are currently classified by the ICTV. It does not compare against ALL phage genomes, just classified genomes. Having found the
+closet related phages it runs the VIRIDIC--algorithm and parses the output to predict the taxonomy of the phage. It is only able to classify to the Genus and Species level
 
-	python taxmyPHAGE.py ---h to get full options 
-
-
-
-	-h, --help            show this help message and exit
-
-
-	  -v, --verbose
-	  -t THREADS, --threads THREADS
-	                        Maximum number of threads that will be used
-
-	  -i IN_FASTA, --input IN_FASTA
-	                        Path to an input fasta file
-
-	 
-	  -d DIST, --distance DIST
-	                        Will change the mash distance for the intial seraching for close relatives. We suggesting keeping
-	                        at 0.2 If this results in the phage not being classified, then increasing to 0.3 might result in
-	                        an output that shows the phage is a new genus. We have found increasing above 0.2 does not place
-	                        the query in any current genus, only provides the output files to demonstrate it falls outside of
-	                        current genera
-
-	  --Figures {T,F}       Specify 'T' or 'F' to produce Figures. Using F will speed up the time it takes to run the script -
-	                        but you get no Figures. Default is with Figures 
-
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose
+  -t THREADS, --threads THREADS
+                        Maximum number of threads that will be used
+  -i IN_FASTA, --input IN_FASTA
+                        Path to an input fasta file
+  -db ICTV_DB, --database ICTV_DB
+                        Path to the database of genomes currently classified by the ICTV
+  --mash_index MASH_INDEX
+                        Path to the prebuilt MASH index of ICTV genomes
+  --VMR VMR_FILE        Path to an input fasta file
+  -p PREFIX, --prefix PREFIX
+                        will add the prefix to results and summary files that will store results of MASH and comparision to the VMR Data produced byICTV combines both sets of this data into a single csv file.
+                        Use this flag if you want to run multiple times and keep the results files without manual renaming of files
+  -d DIST, --distance DIST
+                        Will change the mash distance for the intial seraching for close relatives. We suggesting keeping at 0.2 If this results in the phage not being classified, then increasing to 0.3 might
+                        result in an output that shows the phage is a new genus. We have found increasing above 0.2 does not place the query in any current genus, only provides the output files to demonstrate
+                        it falls outside of current genera
+  --no-figures          Use this option if you don't want to generate Figures. This will speed up the time it takes to run the script - but you get no Figures.
+  -o OUTPUT, --output OUTPUT
+                        Path to the output directory
 
 ----------
 

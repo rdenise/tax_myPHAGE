@@ -301,7 +301,6 @@ if __name__ == '__main__':
         "-v",
         "--verbose",
         action="store_true",
-        default=0,
     )
     parser.add_argument(
         "-t",
@@ -317,6 +316,7 @@ if __name__ == '__main__':
         dest="in_fasta",
         type=str,
         help="Path to an input fasta file",
+        required=True,
     )
     parser.add_argument(
         "-db",
@@ -362,12 +362,10 @@ if __name__ == '__main__':
         " provides the output files to demonstrate it falls outside of current genera",
     )
     parser.add_argument(
-        "--Figures",
-        type=str,
-        choices=["T", "F"],
-        default="T",
-        help="Specify 'T' or 'F' to produce Figures. Using F"
-        "will speed up the time it takes to run the script - but you get no Figures. ",
+        "--no-figures",
+        dest="Figure",
+        action="store_false",
+        help="Use this option if you don't want to generate Figures. This will speed up the time it takes to run the script - but you get no Figures. ",
     )
     parser.add_argument(
         "-o",
@@ -656,7 +654,7 @@ if __name__ == '__main__':
     ic(PMV.dfM)
 
     # heatmap and distances
-    if args.Figures != "F":
+    if args.Figures:
         print_ok("\nWill calculate and save heatmaps now")
         heatmap(PMV.dfM, heatmap_file, top_right_matrix)
     else:
