@@ -36,22 +36,22 @@ What it wont do:
 
 #### QUICK start and test
 
+```
+git clone https://github.com/amillard/tax_myPHAGE
 
-	git clone https://github.com/amillard/tax_myPHAGE
+cd tax_myPHAGE
 
-	cd tax_myPHAGE
+mamba install  -c conda-forge -c bioconda biopython pandas icecream networkx tqdm openpyxl matplotlib python-wget
 
-	mamba install  -c conda-forge -c bioconda biopython pandas icecream networkx tqdm openpyxl matplotlib
-
-	python tax_myPHAGE.py -i test.fna -t 8 
-
+python tax_myPHAGE.py -i test.fna -t 8 
+```
 
 This should check the required software is installed and give a warning if not. It will also download the required fasta database and MASH file for comparison. These will be installed in the cloned tax_myPHAGE directory. If you download manually then please move them into tax_myPHAGE  directory.
 
 
 Output of the test should have the following lines at the bottom 
 
- ![example](/img/example_result1.png)
+![example](/img/example_result1.png)
 
 
 ## Requirements 
@@ -70,7 +70,9 @@ A working version of [mash](https://mash.readthedocs.io/en/latest/) for install 
 
 A prebuilt MASH index of ICTV genomes. Can be downloaded from here https://millardlab-inphared.s3.climb.ac.uk/ICTV.msh
 
-	wget  https://millardlab-inphared.s3.climb.ac.uk/ICTV_2023.msh
+```
+wget  https://millardlab-inphared.s3.climb.ac.uk/ICTV_2023.msh
+```
 
 Will attempt to install automatically if you haven't downloaded in advance of running in the folder ~/.taxmyPHAGE/
 
@@ -79,13 +81,16 @@ Will attempt to install automatically if you haven't downloaded in advance of ru
 
 Can be created manually or download here [Bacteriophage Genomes](https://millardlab-inphared.s3.climb.ac.uk/Bacteriophage_genomes.fasta.gz)
 
-	wget https://millardlab-inphared.s3.climb.ac.uk/Bacteriophage_genomes.fasta.gz
-	gunzip Bacteriophage_genomes.fasta.gz
+```	
+wget https://millardlab-inphared.s3.climb.ac.uk/Bacteriophage_genomes.fasta.gz
+gunzip Bacteriophage_genomes.fasta.gz
+```
 
 Create a blast database of these with 
 
-	makeblastdb -in Bacteriophage_genomes.fasta -parse_seqids -dbtype nucl 
-
+```
+makeblastdb -in Bacteriophage_genomes.fasta -parse_seqids -dbtype nucl 
+```
 
 Again it will attempt to download and install these for you if they havent been installed in advance 
 
@@ -104,15 +109,15 @@ Again will download a version if none is not detected
 
 ### Install python modules 
 
-
-	mamba install  -c conda-forge -c bioconda biopython pandas icecream networkx tqdm openpyxl matplotlib python-wget
-
-
+```
+mamba install  -c conda-forge -c bioconda biopython pandas icecream networkx tqdm openpyxl matplotlib python-wget
+```
 
 
 
 ### Run with 
 
+```
 usage: tax_myPHAGE.py [-h] [-v] [-t THREADS] -i IN_FASTA [-db ICTV_DB] [--mash_index MASH_INDEX] [--VMR VMR_FILE] [-p PREFIX] [-d DIST] [--no-figures] [-o OUTPUT]
 
 Takes a phage genome as as fasta file and compares against all phage genomes that are currently classified by the ICTV. It does not compare against ALL phage genomes, just classified genomes. Having found the
@@ -140,6 +145,7 @@ options:
   --no-figures          Use this option if you don't want to generate Figures. This will speed up the time it takes to run the script - but you get no Figures.
   -o OUTPUT, --output OUTPUT
                         Path to the output directory
+```
 
 ----------
 
