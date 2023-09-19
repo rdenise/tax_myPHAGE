@@ -654,7 +654,7 @@ if __name__ == '__main__':
     ic(PMV.dfM)
 
     # heatmap and distances
-    if args.Figures:
+    if args.Figure:
         print_ok("\nWill calculate and save heatmaps now")
         heatmap(PMV.dfM, heatmap_file, top_right_matrix)
     else:
