@@ -157,24 +157,30 @@ class PoorMansViridic:
         # If the identity of the pair B, A is NaN then the pair is A, B
         dfM.loc[dfM.idBA.isna(), "idBA"] = dfM.loc[dfM.idBA.isna(), "idAB"]
 
+        # Map the size of the genome to the dataframe
         dfM["lA"] = dfM['A'].map(size_dict)
         dfM["lB"] = dfM['B'].map(size_dict)
 
+        # Calculate the similarity
         dfM["simAB"] = ((dfM.idAB + dfM.idBA) * 100) / (dfM.lA + dfM.lB)
 
+        # Calculate the distance
         dfM["distAB"] = 100 - dfM.simAB
 
+        # Calculate the aligned fraction of the genome
         dfM["aligned_fraction_genome_1"] = dfM.idAB / dfM.lA
         dfM["aligned_fraction_genome_2"] = dfM.idBA / dfM.lB
         dfM["genome_length_ratio"] = dfM[["lA", "lB"]].min(axis=1) / dfM[["lA", "lB"]].max(axis=1)
 
+        # Calculate the similarity
         dfM['sim'] = 100 - dfM.distAB
 
         # Remove the duplicate pairs
         dfM["ordered_pair"] = dfM.apply(lambda x: str(sorted(x.pair_BA)), axis=1)
         dfM = dfM.drop_duplicates("ordered_pair").reset_index(drop=True)
 
-        dfM = dfM.drop(columns=['identity_seq', 'pair_BA', 'idAB', 'idBA', 'lA', 'lB', 'simAB'])
+        # Remove the columns that are not needed
+        dfM = dfM.drop(columns=['identity_seq', 'pair_BA', 'idAB', 'idBA', 'lA', 'lB', 'simAB', 'ordered_pair'])
 
         self.dfM = dfM
 
@@ -236,15 +242,15 @@ def heatmap(dfM, outfile, matrix_out, cmap='Greens'):
     dendrogram = sch.dendrogram(Z, labels=df.index, no_plot=True)
 
     # Looking for the query leave to put at the end
-# leaves_order = []
+    leaves_order = []
 
-# for leave in dendrogram['ivl']:
-#     if "query" not in leave:
-#         leaves_order.append(leave)
-#     else:
-#         query_leave = leave
+    for leave in dendrogram['ivl']:
+        if "query" not in leave:
+            leaves_order.append(leave)
+        else:
+            query_leave = leave
 
-# leaves_order.append(query_leave)
+    leaves_order.append(query_leave)
 
     # Reorder the matrix
     df = df.loc[leaves_order, leaves_order]
