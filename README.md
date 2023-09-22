@@ -110,7 +110,7 @@ Again will download a version if none is not detected
 ### Install python modules 
 
 ```
-mamba install  -c conda-forge -c bioconda biopython pandas icecream networkx tqdm openpyxl matplotlib python-wget
+mamba install  -c conda-forge -c bioconda biopython pandas icecream networkx tqdm openpyxl matplotlib python-wget scipy
 ```
 
 

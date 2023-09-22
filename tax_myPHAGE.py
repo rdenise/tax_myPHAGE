@@ -20,9 +20,12 @@ from matplotlib.colors import ListedColormap, BoundaryNorm
 import wget
 import shutil
 import glob
+import scipy.cluster.hierarchy as sch
+import matplotlib.colors as mcolors
 
 # Set matplotlib parameters
 import matplotlib.pyplot as plt
+
 plt.rcParams["text.color"] = "#131516"
 plt.rcParams["svg.fonttype"] = "none"  # Editable SVG text
 plt.rcParams["font.family"] = "Arial"
@@ -97,38 +100,50 @@ class PoorMansViridic:
 
     def parse_blastn_file(self):
         ic("Reading", self.blastn_result_file)
-        df = pd.read_table(self.blastn_result_file, names='qseqid sseqid pident length qlen slen mismatch nident gapopen qstart qend sstart send qseq sseq evalue bitscore'.split())
-        self.blastn_df = df
-        
-        self.size_dict = dict(df['qseqid qlen'.split()].values) | dict(df['sseqid slen'.split()].values)
 
-        # this part is slow ... filling the genome with all the matches
+        num_lines = rawgencount(self.blastn_result_file)
+
+        self.size_dict = {}
         M = {}
-        for qseqid, sseqid, pident, length, qlen, slen, mismatch, nident, gapopen, qstart, qend, sstart, send, qseq, sseq, evalue, bitscore in tqdm(df.values):
-            key = (qseqid, sseqid)
-            if qstart > qend: qstart, qend = qend, qstart
-            M.setdefault(key, [0]*qlen)
-            v = M[key]
-            gaps = 0
-            for n, nt in enumerate(qseq):
-                if nt == '-':
-                    gaps += 1
-                    continue
-                if v[qstart-1+n-gaps] == 1: continue
-                v[qstart-1+n-gaps] = int(sseq[n] == qseq[n])
+        with gzip.open(self.blastn_result_file, 'rt') as df:
+            for line in tqdm(df, total=num_lines):
+                # do something with the line
+                qseqid, sseqid, pident, length, qlen, slen, mismatch, nident, gapopen, qstart, qend, sstart, send, qseq, sseq, evalue, bitscore = line.rstrip().split()
+                key = (qseqid, sseqid)
+                M.setdefault(key, np.zeros(int(qlen)))
+
+                if qseqid not in self.size_dict:
+                    self.size_dict[qseqid] = int(qlen) 
+                if sseqid not in self.size_dict:
+                    self.size_dict[sseqid] = int(slen)
+
+                # convert the strings to numpy arrays
+                qseq = np.frombuffer(qseq.encode('utf-8'), dtype="S1")
+                sseq = np.frombuffer(sseq.encode('utf-8'), dtype="S1")
+
+                v = np.where(qseq == sseq, 1, 0)
+
+                # find the indices of elements that are not equal to '-'. Here it is b'-' because the array is of type bytes.
+                idx = qseq != b'-'
+
+                # add the values to the matrix
+                M[key][int(qstart)-1:int(qend)] += v[idx]
+
+        # convert the matrix to a binary matrix
+        M = {key:np.where(value != 0, 1, 0) for key, value in M.items()}
 
         self.M = M
 
     def calculate_distances(self):
         M = self.M
         size_dict = self.size_dict
-        genomes = list(set([x[0] for x in M.keys()] + [x[0] for x in M.keys()]))
+        genomes = list(set([x[0] for x in M.keys()] + [x[1] for x in M.keys()]))
         # now calculating the distances
         L = []
         for gA, gB in combinations_with_replacement(genomes, 2):
-            if (gA, gB) not in M and (gB, gB) not in M: continue
-            if (gA, gB) not in M: M[(gA, gB)] = M[(gB, gB)]
-            if (gB, gA) not in M: M[(gB, gA)] = M[(gA, gA)]
+            if (gA, gB) not in M and (gB, gA) not in M: continue
+            if (gA, gB) not in M: M[(gA, gB)] = M[(gB, gA)]
+            if (gB, gA) not in M: M[(gB, gA)] = M[(gA, gB)]
             
             
             idAB = sum(M[(gA, gB)])
@@ -143,19 +158,45 @@ class PoorMansViridic:
             genome_length_ratio = lA / lB if lA < lB else lB / lA
             L.append([gA, gB, distAB, aligned_fraction_genome_1, genome_length_ratio, aligned_fraction_genome_2])
 
-        dfM = pd.DataFrame(L, columns='A B distAB afg1 glr afg2'.split())
+        dfM = pd.DataFrame(L, columns=['A', 'B', 'distAB', 'aligned_fraction_genome_1', 'genome_length_ratio', 'aligned_fraction_genome_2'])
 
         dfM['sim'] = 100 - dfM.distAB
         self.dfM = dfM
 
     def save_similarities(self, outfile='similarities.tsv'):
-        df = self.dfM['A B sim'.split()]
+        df = self.dfM[['A', 'B', 'sim']]
         df = df[df.A != df.B]
-        df.sort_values('sim', ascending=False)
+        df.sort_values('sim', ascending=False, inplace=True)
         df.index.name = ''
         df.to_csv(outfile, index=False, sep='\t')
-        
-    
+        self.dfM.sort_values('sim', ascending=False).to_csv(outfile+".dfM.tsv", index=False, sep='\t')
+
+
+def _make_gen(reader):
+    """Generator to read a file piece by piece.
+    Default chunk size: 1k.
+    Args:
+        reader (func): Function to read a piece of the file.
+    Yields:
+        generator: A generator object that yields pieces of the file.
+    """
+    b = reader(1024 * 1024)
+    while b:
+        yield b
+        b = reader(1024*1024)
+
+def rawgencount(filename):
+    """Count the number of lines in a file.
+    Args:
+        filename (str): The name of the file to count.
+    Returns:
+        int: The number of lines in the file.
+    """
+    f = gzip.open(filename, 'rb') 
+    f_gen = _make_gen(f.read)
+    return sum( buf.count(b'\n') for buf in f_gen )
+
+
 def heatmap(dfM, outfile, matrix_out, cmap='Greens'):
 
     #define output files
@@ -170,9 +211,34 @@ def heatmap(dfM, outfile, matrix_out, cmap='Greens'):
     df = dfM.pivot(index='A', columns='B', values='sim').fillna(0)
     df = df.rename({'taxmyPhage':'query'}, axis=1).rename({'taxmyPhage':'query'}, axis=0)
 
+    # Make the matrix symmetric
+    df = df + df.T - np.diag(df.values.diagonal())
+
+    # Perform hierarchical clustering
+    Z = sch.linkage(df, method='ward')
+
+    # Plot the dendrogram
+    dendrogram = sch.dendrogram(Z, labels=df.index, no_plot=True)
+
+    # Looking for the query leave to put at the end
+# leaves_order = []
+
+# for leave in dendrogram['ivl']:
+#     if "query" not in leave:
+#         leaves_order.append(leave)
+#     else:
+#         query_leave = leave
+
+# leaves_order.append(query_leave)
+
+    # Reorder the matrix
+    df = df.loc[leaves_order, leaves_order]
+    df.iloc[:,:] = np.triu(df.values, k=0)
+    # Maybe the following method is faster 
+    # df = df.where(np.triu(np.ones(df.shape)).astype(np.bool))
+
     df.to_csv(matrix_out, sep='\t', index=True)
 
-    import matplotlib.colors as mcolors
     colors = ["white", "lightgray", "skyblue", "steelblue", "darkgreen"]
     boundaries = [0, 1, 50, 70, 95, 100]
 
@@ -182,7 +248,6 @@ def heatmap(dfM, outfile, matrix_out, cmap='Greens'):
 
     #image
     #im = plt.imshow(df.values, cmap=cmap)
-
     im = plt.imshow(df.values, cmap=custom_cmap, norm=norm)
 
     ax.set_xticks(np.arange(df.shape[1]), labels=df.columns.tolist())
@@ -204,7 +269,8 @@ def heatmap(dfM, outfile, matrix_out, cmap='Greens'):
 
     for i in range(df.shape[0]):
         for j in range(df.shape[1]):
-            font_size = min(fig_width, fig_height) * 0.9
+            font_size = (min(fig_width, fig_height) / max(df.shape[0], df.shape[1])) * 10
+
             ax.text(j, i, df.iloc[i, j], ha="center", va="center", color="w", fontsize=font_size)
     
     # adjust figure size based on number of rows and columns
