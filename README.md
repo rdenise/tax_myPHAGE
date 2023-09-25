@@ -130,6 +130,8 @@ options:
                         Maximum number of threads that will be used
   -i IN_FASTA, --input IN_FASTA
                         Path to an input fasta file
+  --add_genomes ADD_GENOMES
+                        Path to a fasta file containing genomes to add to the viridic. This will be added to the viridic and the viridic figure will be updated
   -db ICTV_DB, --database ICTV_DB
                         Path to the database of genomes currently classified by the ICTV
   --mash_index MASH_INDEX

@@ -149,7 +149,7 @@ class PoorMansViridic:
         dict_BA = dfM.set_index(["A", "B"]).idAB.to_dict()
 
         # Creating the pair of genomes in order B, A
-        dfM["pair_BA"] = dfM.apply(lambda x: (x.A, x.B), axis=1)
+        dfM["pair_BA"] = dfM.apply(lambda x: (x.B, x.A), axis=1)
 
         # Setting the identity of the pair B, A
         dfM["idBA"] = dfM.pair_BA.map(dict_BA)
@@ -168,9 +168,9 @@ class PoorMansViridic:
         dfM["distAB"] = 100 - dfM.simAB
 
         # Calculate the aligned fraction of the genome
-        dfM["aligned_fraction_genome_1"] = dfM.idAB / dfM.lA
-        dfM["aligned_fraction_genome_2"] = dfM.idBA / dfM.lB
-        dfM["genome_length_ratio"] = dfM[["lA", "lB"]].min(axis=1) / dfM[["lA", "lB"]].max(axis=1)
+        dfM["afg1"] = dfM.idAB / dfM.lA
+        dfM["afg2"] = dfM.idBA / dfM.lB
+        dfM["glr"] = dfM[["lA", "lB"]].min(axis=1) / dfM[["lA", "lB"]].max(axis=1)
 
         # Calculate the similarity
         dfM['sim'] = 100 - dfM.distAB
@@ -243,13 +243,17 @@ def heatmap(dfM, outfile, matrix_out, cmap='Greens'):
 
     # Looking for the query leave to put at the end
     leaves_order = []
+    add_genomes = []
 
     for leave in dendrogram['ivl']:
-        if "query" not in leave:
-            leaves_order.append(leave)
-        else:
+        if "query" in leave:
             query_leave = leave
+        elif "_added" in leave:
+            add_genomes.append(leave)
+        else:
+            leaves_order.append(leave)
 
+    leaves_order += add_genomes
     leaves_order.append(query_leave)
 
     # Reorder the matrix
@@ -461,6 +465,14 @@ if __name__ == '__main__':
         default=os.path.join(os.getcwd(), f"taxmyphage_results"),
         dest="output",
         help="Path to the output directory",
+    )
+    parser.add_argument(
+        "--add_genomes",
+        type=str,
+        default="",
+        dest="add_genomes",
+        help="Path to a fasta file containing genomes to add to the viridic. This will be added to the viridic and the viridic" 
+        " figure will be updated",
     )
 
     args, nargs = parser.parse_known_args()
@@ -729,8 +741,16 @@ if __name__ == '__main__':
 
     #######run poor mans viridic
     with open(viridic_in_path, 'w') as merged_file:
-        for file in known_taxa_path, query:                
+        list_genomes = [known_taxa_path, query]
+        for file in list_genomes:
             SeqIO.write(SeqIO.parse(file, 'fasta'), merged_file, 'fasta')
+        
+        if args.add_genomes:
+            parser = SeqIO.parse(args.add_genomes, 'fasta')
+            for record in parser:
+                record.id = record.id + '_added'
+                record.name = record.description = ""
+                SeqIO.write(record, merged_file, "fasta")
             
 
     PMV = PoorMansViridic(viridic_in_path, nthreads=threads, verbose=verbose)
