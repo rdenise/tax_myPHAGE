@@ -711,7 +711,7 @@ def Run(record, results_path):
         Cluster Number: {query_genus_cluster_number} is not in the dictionary of known Genera: {dict_genus_cluster_2_genus_name}""")
         print_res("""
         Phage is NOT within a current genus or species and therefore a both 
-        a new Genus and species.""")
+        a new Genus and species.\n""")
 
         with open(summary_output_path, 'a') as file:
             file.write(f"""Try running again with if you larger distance if you want a Figure.
