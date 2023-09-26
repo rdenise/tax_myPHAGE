@@ -129,7 +129,7 @@ options:
   -t THREADS, --threads THREADS
                         Maximum number of threads that will be used
   -i IN_FASTA, --input IN_FASTA
-                        Path to an input fasta file
+                        Path to an input fasta file, or directory containing fasta files
   --add_genomes ADD_GENOMES
                         Path to a fasta file containing genomes to add to the viridic. This will be added to the viridic and the viridic figure will be updated
   -db ICTV_DB, --database ICTV_DB
