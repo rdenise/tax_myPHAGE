@@ -22,6 +22,8 @@ import shutil
 import glob
 import scipy.cluster.hierarchy as sch
 import matplotlib.colors as mcolors
+import re
+import glob
 
 # Set matplotlib parameters
 import matplotlib.pyplot as plt
@@ -106,7 +108,8 @@ class PoorMansViridic:
         self.size_dict = {}
         M = {}
         with gzip.open(self.blastn_result_file, 'rt') as df:
-            for line in tqdm(df, total=num_lines):
+            genome_name = os.path.dirname(self.file).split('/')[-1]
+            for line in tqdm(df, desc=f"{genome_name}: Blast reading:", total=num_lines, leave=False):
                 # do something with the line
                 qseqid, sseqid, pident, length, qlen, slen, mismatch, nident, gapopen, qstart, qend, sstart, send, qseq, sseq, evalue, bitscore = line.rstrip().split()
                 key = (qseqid, sseqid)
@@ -218,7 +221,7 @@ def rawgencount(filename):
     return sum( buf.count(b'\n') for buf in f_gen )
 
 
-def heatmap(dfM, outfile, matrix_out, cmap='Greens'):
+def heatmap(dfM, outfile, matrix_out, accession_genus_dict, cmap='Greens'):
 
     #define output files
     svg_out = outfile+".svg"
@@ -307,7 +310,9 @@ def heatmap(dfM, outfile, matrix_out, cmap='Greens'):
     plt.savefig(svg_out)
     plt.savefig(pdf_out)
     plt.savefig(jpg_out)
-    return im
+    plt.close()
+
+    return
 
         
 def is_program_installed_unix(program_name):
@@ -336,7 +341,7 @@ def check_programs():
 def check_blastDB(blastdb_path):
     #check if blastDB is present
     if os.path.exists(blastdb_path):
-        print_ok(f"Found {blastdb_path} as expected")
+        print_ok(f"Found {blastdb_path} as expected\n")
     else:
         print_error(f"File {blastdb_path} does not exist will create database now  ")
         print_error("Will download the database now and create database")
@@ -345,7 +350,7 @@ def check_blastDB(blastdb_path):
             create_folder(os.path.dirname(blastdb_path))
             wget.download(url, f"{blastdb_path}.gz")
             print(f"\n{url} downloaded successfully!")
-        except subprocess.CalledProcessError as e:
+        except Exception as e:
             print(f"An error occurred while downloading {url}: {e}")
         #Gunzip the file
         try:
@@ -355,14 +360,14 @@ def check_blastDB(blastdb_path):
                     os.remove(f"{blastdb_path}.gz")
 
             print("File gunzipped successfully!")
-        except subprocess.CalledProcessError as e:
+        except Exception as e:
             print(f"An error occurred while gunzipping the file: {e}")
 
         # Run makeblastdb
         makeblastdb_command = f"makeblastdb -in {blastdb_path} -parse_seqids -dbtype nucl"
         try:
             subprocess.run(makeblastdb_command, shell=True, check=True)
-            print("makeblastdb command executed successfully!")
+            print("makeblastdb command executed successfully!\n")
         except subprocess.CalledProcessError as e:
             print(f"An error occurred while executing makeblastdb: {e}")
 
@@ -382,152 +387,45 @@ def create_folder(mypath):
 
     return
 
-    
-if __name__ == '__main__':
-    description = """Takes a phage genome as as fasta file and compares against all phage genomes that are currently classified 
-         by the ICTV. It does not compare against ALL phage genomes, just classified genomes. Having found the closet related phages 
-         it runs the VIRIDIC--algorithm and parses the output to predict the taxonomy of the phage. It is only able to classify to the Genus and Species level"""
-    parser = ArgumentParser(description=description)
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-    )
-    parser.add_argument(
-        "-t",
-        "--threads",
-        dest="threads",
-        type=str,
-        default="8",
-        help="Maximum number of threads that will be used",
-    )
-    parser.add_argument(
-        "-i",
-        "--input",
-        dest="in_fasta",
-        type=str,
-        help="Path to an input fasta file",
-        required=True,
-    )
-    parser.add_argument(
-        "-db",
-        "--database",
-        dest="ICTV_db",
-        type=str,
-        help="Path to the database of genomes currently classified by the ICTV",
-        default=os.path.abspath(os.path.join(os.path.expanduser('~'), ".taxmyPHAGE", "Bacteriophage_genomes.fasta")),
-    )
-    parser.add_argument(
-        "--mash_index",
-        dest="mash_index",
-        type=str,
-        help="Path to the prebuilt MASH index of ICTV genomes",
-        default=os.path.abspath(os.path.join(os.path.expanduser('~'), ".taxmyPHAGE", "ICTV.msh")),
-    )
-    parser.add_argument(
-        "--VMR",
-        dest="VMR_file",
-        type=str,
-        help="Path to an input fasta file",
-        default=os.path.abspath(os.path.join(os.path.expanduser('~'), ".taxmyPHAGE", "VMR.xlsx")),
-    )
-    parser.add_argument(
-        "-p",
-        "--prefix",
-        type=str,
-        default="",
-        dest="prefix",
-        help="will add the prefix to results and summary files that will store results of MASH and comparision to the VMR Data produced by"
-        "ICTV combines both sets of this data into a single csv file. "
-        "Use this flag if you want to run multiple times and keep the results files without manual renaming of files",
-    )
-    parser.add_argument(
-        "-d",
-        "--distance",
-        type=str,
-        default="0.2",
-        dest="dist",
-        help="Will change the mash distance for the intial seraching for close relatives. We suggesting keeping at 0.2"
-        " If this results in the phage not being classified, then increasing to 0.3 might result in an output that shows"
-        " the phage is a new genus. We have found increasing above 0.2 does not place the query in any current genus, only"
-        " provides the output files to demonstrate it falls outside of current genera",
-    )
-    parser.add_argument(
-        "--no-figures",
-        dest="Figure",
-        action="store_false",
-        help="Use this option if you don't want to generate Figures. This will speed up the time it takes to run the script - but you get no Figures. ",
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        type=str,
-        default=os.path.join(os.getcwd(), f"taxmyphage_results"),
-        dest="output",
-        help="Path to the output directory",
-    )
-    parser.add_argument(
-        "--add_genomes",
-        type=str,
-        default="",
-        dest="add_genomes",
-        help="Path to a fasta file containing genomes to add to the viridic. This will be added to the viridic and the viridic" 
-        " figure will be updated",
-    )
+def read_write_fasta(input_file, f):
+    handle = gzip.open(input_file, 'rt') if input_file.endswith('.gz') else open(input_file, "rt")
 
-    args, nargs = parser.parse_known_args()
-    verbose = args.verbose
+    num = 0
 
-    #turn on ICECREAM reporting
-    if not verbose: ic.disable()
+    parser = SeqIO.parse(handle, "fasta")
+    for record in parser:
+        record.name = record.description = ""
+        SeqIO.write(record, f, "fasta")
+        num += 1
+    handle.close()
 
+    return num
+
+
+def create_files_and_result_paths(fasta_files, tmp_fasta, suffixes=['fasta', 'fna', 'fsa', 'fa']):
+    fasta_exts = re.compile('|'.join([f"\.{suffix}(\.gz)?$" for suffix in suffixes]))
+    num_genomes = 0
+    with open(tmp_fasta, 'w') as f:
+        for file in fasta_files:
+            if os.path.isdir(file):
+                _files = glob.glob(f'{file}/*')
+                _files = [x for x in _files if fasta_exts.search(x)]
+                
+                for _file in _files:
+                    num = read_write_fasta(_file, f)
+                    num_genomes += num
+
+            elif os.path.isfile(file):
+                num = read_write_fasta(file, f)
+                num_genomes += num
+
+    return num_genomes
+
+def Run(record, results_path):
     timer_start = time.time()
 
-    # this is the location of where the script and the databases are (instead of current_directory which is the users current directory)
-    VMR_path = args.VMR_file
-    blastdb_path = args.ICTV_db
-    ICTV_path = args.mash_index
-
-    print("Looking for database files...\n")
-
-    if os.path.exists(VMR_path):
-        print_ok(f"Found {VMR_path} as expected")
-    else:
-        print_error(f'File {VMR_path} does not exist will try downloading now')
-        print_error("Will download the current VMR now")
-        url = "https://ictv.global/vmr/current"
-        try:
-            create_folder(os.path.dirname(VMR_path))
-            wget.download(url, VMR_path)
-            print(f"\n{url} downloaded successfully!")
-        except subprocess.CalledProcessError as e:
-            print(f"An error occurred while downloading {url}: {e}")
-
-    if os.path.exists(ICTV_path):
-        print_ok(f"Found {ICTV_path} as expected")
-    #else:
-    #    print_error(f'File {ICTV_path} does not exist, was it downloaded correctly?')
-    else:
-        print_error(f"File {ICTV_path} does not exist will create database now  ")
-        print_error("Will download the database now and create database")
-        url = "https://millardlab-inphared.s3.climb.ac.uk/ICTV_2023.msh"
-        try:
-            create_folder(os.path.dirname(ICTV_path))
-            wget.download(url, ICTV_path)
-            print(f"\n{url} downloaded successfully!")
-        except subprocess.CalledProcessError as e:
-            print(f"An error occurred while downloading {url}: {e}")
-
-    check_programs()
-    check_blastDB(blastdb_path)
-    
-    #Defined and set some parameters
-    fasta_file = args.in_fasta
-    threads = args.threads
-    mash_dist = args.dist
     ic("Number of set threads", threads)
     #create results folder
-    results_path = args.output
     query = os.path.join(results_path,'query.fasta')
 
     #path to the combined df containing mash and VMR data
@@ -574,31 +472,10 @@ if __name__ == '__main__':
     #create the results folder
     create_folder(results_path)
 
-    #write the input file to a new file with a header called "query_{id of the user}" which makes it easier to find in data later on
-    handle = gzip.open(fasta_file, 'rt') if fasta_file.endswith('.gz') else open(fasta_file, "rt")
-
-    num_sequences = handle.read().count('>')
-
-    # Reset the file pointer to the beginning of the file
-    handle.seek(0)
-
-    if num_sequences == 0:
-        print_error("Error: The FASTA file is empty.")
-        sys.exit()
-    elif num_sequences == 1:
-        # Open output FASTA file
-        with open(query, "w") as output_fid:
-            parser = SeqIO.parse(handle, "fasta")
-            for record in parser:
-                record.name = record.description = ""
-                record.id = f"query_{record.id}"
-                SeqIO.write(record, output_fid, "fasta")
-    else:
-        print_error(f"\nError: The {fasta_file} FASTA file contains {num_sequences} sequences."\
-              " Only one sequence can be classified at a time ")
-        sys.exit()
-
-    handle.close()
+    with open(query, "w") as output_fid:
+        record.name = record.description = ""
+        record.id = f"query_{record.id}"
+        SeqIO.write(record, output_fid, "fasta")
 
     #Read the viral master species record into a DataFrame
     taxa_df = pd.read_excel(VMR_path,sheet_name=0)
@@ -622,8 +499,6 @@ if __name__ == '__main__':
 
     # list of names for the headers
     mash_df = pd.read_csv(io.StringIO(mash_output), sep='\t', header=None, names=['Reference', 'Query', 'distance', 'p-value', 'shared-hashes', 'ANI'])
-    ic(ICTV_path)
-    ic(mash_df)
     number_hits = mash_df.shape[0]
 
     #get the number of genomes wih mash distance < 0.2
@@ -649,36 +524,36 @@ if __name__ == '__main__':
     print_ok(f"""\nThe mash distances obtained for this query phage
     is a minimum value of {minimum_value} and maximum value of {minimum_value}\n""")
 
-    #set the maximum number of hits to take forward. Max is 50 or the max number in the table if <50
+    #set the maximum number of hits to take forward. Max is 10 or the max number in the table if <10
     filter_hits =""
     if number_hits < 10:
         filter_hits = number_hits
     else:
         filter_hits = 10
 
-    #copy top 50 hits to a new dataframe
-    top_50 = mash_df.iloc[:filter_hits].copy()
+    #copy top 10 hits to a new dataframe
+    top_10 = mash_df.iloc[:filter_hits].copy()
 
     ic(mash_df.head(10))
-    ic(top_50)
+    ic(top_10)
     #reindex
-    top_50.reset_index(drop=True, inplace=True)
+    top_10.reset_index(drop=True, inplace=True)
 
-    value_at_50th_position = top_50['distance'].iloc[filter_hits-1]
-    ic(value_at_50th_position)
+    value_at_10th_position = top_10['distance'].iloc[filter_hits-1]
+    ic(value_at_10th_position)
     
-    top_50['genus'] = top_50['Reference'].str.split('/').str[1]
-    top_50['acc'] = top_50['Reference'].str.split('/').str[-1].str.split('.fna|.fsa').str[0]
-    top_50 = top_50.merge(taxa_df, left_on = 'acc', right_on = 'Genbank')
-    top_50['ANI'] = (1 - top_50.distance)*100
+    top_10['genus'] = top_10['Reference'].str.split('/').str[1]
+    top_10['acc'] = top_10['Reference'].str.split('/').str[-1].str.split('.fna|.fsa').str[0]
+    top_10 = top_10.merge(taxa_df, left_on = 'acc', right_on = 'Genbank')
+    top_10['ANI'] = (1 - top_10.distance)*100
 
-    #returns the unique genera names found in the mash hits - top_50 is not the best name!
+    #returns the unique genera names found in the mash hits - top_10 is not the best name!
 
-    unique_genera_counts = top_50.genus.value_counts()
+    unique_genera_counts = top_10.genus.value_counts()
     ic(unique_genera_counts.to_dict())
     unique_genera = unique_genera_counts.index.tolist()
 
-    #unique_genera top_50.genus.value_counts().to_dict()
+    #unique_genera top_10.genus.value_counts().to_dict()
     #print for error checking
     ic(unique_genera)
 
@@ -721,22 +596,22 @@ if __name__ == '__main__':
 
     #get smallest mash distance
 
-    min_dist = top_50['distance'].min()
+    min_dist = top_10['distance'].min()
 
     if min_dist < 0.04:
         print_ok("Phage is likely NOT a new species, will run further analysis now to to confirm this \n ")
-        top_df = top_50[top_50['distance'] == min_dist]
+        top_df = top_10[top_10['distance'] == min_dist]
         ic(top_df)
 
     elif min_dist > 0.04 and min_dist < 0.1:
         print_ok("It is not clear if the phage is a new species or not. Will run further analysis now to confirm this...\n")
-        top_df = top_50[top_50['distance'] < 0.1]
+        top_df = top_10[top_10['distance'] < 0.1]
         ic(top_df)
-        print(top_50.genus.value_counts())
+        print(top_10.genus.value_counts())
 
     elif min_dist > 0.1 and min_dist < 0.2:
         print_ok("Phage is a new species. Will run further analysis now ....\n")
-        top_df = top_50[top_50['distance'] < 0.1]
+        top_df = top_10[top_10['distance'] < 0.1]
         ic(top_df)
 
     #######run poor mans viridic
@@ -763,7 +638,7 @@ if __name__ == '__main__':
     # heatmap and distances
     if args.Figure:
         print_ok("\nWill calculate and save heatmaps now")
-        heatmap(PMV.dfM, heatmap_file, top_right_matrix)
+        heatmap(PMV.dfM, heatmap_file, top_right_matrix, accession_genus_dict)
     else:
         print_error("\n Skipping calculating heatmaps and saving them \n ")
 
@@ -794,13 +669,13 @@ if __name__ == '__main__':
     print(f"""\n\nTotal number of VIRIDIC-algorithm genus clusters in the input including QUERY sequence was: {total_num_viridic_genus_clusters}
     Total number of VIRIDIC-algorithm species clusters including QUERY sequence was {total_num_viridic_species_clusters} """)
 
-    print(f"""\n\nNumber of current ICTV defined genera was: {num_unique_ICTV_genera}
+    print(f"""\nNumber of current ICTV defined genera was: {num_unique_ICTV_genera}
     Number of VIRIDIC-algorithm predicted genera (excluding query) was: {num_unique_viridic_genus_clusters} """)
 
     if num_unique_ICTV_genera == num_unique_viridic_genus_clusters:
         print(f"""\n\nCurrent ICTV and VIRIDIC-algorithm predictions are consistent for the data that was used to compare against""")
 
-    print_ok(f"Number of unique VIRIDIC-algorithm clusters at default cutoff of 70% is: {num_unique_viridic_genus_clusters}")
+    print_ok(f"\nNumber of unique VIRIDIC-algorithm clusters at default cutoff of 70% is: {num_unique_viridic_genus_clusters}")
     print_ok(f"""Number of current ICTV genera associated with the reference genomes is {num_unique_ICTV_genera}""")
 
     #unique_viridic_genus_clusters = merged_df['genus_cluster'].unique().tolist()
@@ -815,7 +690,7 @@ if __name__ == '__main__':
     query_genus_cluster_number = query_row['genus_cluster'].values[0]
     query_species_cluster_number = query_row['species_cluster'].values[0]
 
-    print(f"Cluster number of species is {query_species_cluster_number} and cluster of genus is {query_genus_cluster_number}")
+    print(f"\nCluster number of species is {query_species_cluster_number} and cluster of genus is {query_genus_cluster_number}")
     print(f"Genus cluster number is {query_genus_cluster_number}")
 
     #list of VIRIDIC genus and species numbers
@@ -837,7 +712,16 @@ if __name__ == '__main__':
         print_res("""
         Phage is NOT within a current genus or species and therefore a both 
         a new Genus and species.""")
-        sys.exit()
+
+        with open(summary_output_path, 'a') as file:
+            file.write(f"""Try running again with if you larger distance if you want a Figure.
+            The query is both a new genus and species\n
+            {args.prefix}\tNew genus\tNew species\n""")
+
+        run_time = str(timedelta(seconds = time.time() - timer_start))
+        print(f"Run time for {genome.id}: {run_time}\n")
+        print("-" * 80)
+        return
 
     predicted_genus_name = dict_genus_cluster_2_genus_name[query_genus_cluster_number]
 
@@ -859,6 +743,7 @@ if __name__ == '__main__':
             #identify the row in the pandas data frame that is the same species
             matching_species_row = merged_df[merged_df['Species'] == predicted_species]
             ic(matching_species_row)
+
             list_of_S_data = matching_species_row.iloc[0].to_dict()
             ic(list_of_S_data)
             print_res(f"""\nQuery sequence is: 
@@ -868,6 +753,7 @@ if __name__ == '__main__':
                     Genus: {list_of_S_data["Genus"]}
                     Species: {list_of_S_data["Species"]}
                      """)
+            
             with open(summary_output_path,'a') as file:
                 file.write(f"""statement_current_genus_sp 
                            Class: {list_of_S_data["Class"]}\tFamily: {list_of_S_data["Family"]}\tSubfamily: {list_of_S_data["Subfamily"]}\tGenus: {list_of_S_data["Genus"]}\tSpecies: {list_of_S_data["Species"]}
@@ -933,6 +819,7 @@ if __name__ == '__main__':
                 # identify the row in the pandas data frame that is the same species
                 matching_species_row = merged_df[merged_df['Species'] == predicted_species]
                 ic(matching_species_row)
+
                 list_of_S_data = matching_species_row.iloc[0].to_dict()
                 ic(list_of_S_data)
                 print_res(f"""\nQuery sequence is: 
@@ -942,8 +829,9 @@ if __name__ == '__main__':
                         Genus: {list_of_S_data["Genus"]}
                         Species: {list_of_S_data["Species"]}
                          """)
+                
                 with open(summary_output_path, 'a') as file:
-                    file.write(f"""statement_current_genus_sp 
+                    file.write(f"""{statement_current_genus_sp} 
                                Class: {list_of_S_data["Class"]}\tFamily: {list_of_S_data["Family"]}\tSubfamily: {list_of_S_data["Subfamily"]}\tGenus:{list_of_S_data["Genus"]}\tSpecies: {list_of_S_data["Species"]}
                     \n{summary_statement1}""")
 
@@ -977,4 +865,164 @@ if __name__ == '__main__':
             mash_df.to_csv(summary_output_path, mode='a', header=True, index=False,sep='\t')
 
     run_time = str(timedelta(seconds = time.time() - timer_start))
-    print(f"Run time for {fasta_file}: {run_time}", file=sys.stderr)
+    print(f"Run time for {genome.id}: {run_time}\n", file=sys.stderr)
+    print("-" * 80, file=sys.stderr)
+
+
+    
+if __name__ == '__main__':
+    description = """Takes a phage genome as as fasta file and compares against all phage genomes that are currently classified 
+         by the ICTV. It does not compare against ALL phage genomes, just classified genomes. Having found the closet related phages 
+         it runs the VIRIDIC--algorithm and parses the output to predict the taxonomy of the phage. It is only able to classify to the Genus and Species level"""
+    parser = ArgumentParser(description=description)
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+    )
+    parser.add_argument(
+        "-t",
+        "--threads",
+        dest="threads",
+        type=str,
+        default="8",
+        help="Maximum number of threads that will be used",
+    )
+    parser.add_argument(
+        "-i",
+        "--input",
+        dest="in_fasta",
+        type=str,
+        help="Path to an input fasta file(s), or directory containing fasta files",
+        required=True,
+        nargs="+",
+    )
+    parser.add_argument(
+        "-db",
+        "--database",
+        dest="ICTV_db",
+        type=str,
+        help="Path to the database of genomes currently classified by the ICTV",
+        default=os.path.abspath(os.path.join(os.path.expanduser('~'), ".taxmyPHAGE", "Bacteriophage_genomes.fasta")),
+    )
+    parser.add_argument(
+        "--mash_index",
+        dest="mash_index",
+        type=str,
+        help="Path to the prebuilt MASH index of ICTV genomes",
+        default=os.path.abspath(os.path.join(os.path.expanduser('~'), ".taxmyPHAGE", "ICTV.msh")),
+    )
+    parser.add_argument(
+        "--VMR",
+        dest="VMR_file",
+        type=str,
+        help="Path to an input fasta file",
+        default=os.path.abspath(os.path.join(os.path.expanduser('~'), ".taxmyPHAGE", "VMR.xlsx")),
+    )
+    parser.add_argument(
+        "-p",
+        "--prefix",
+        type=str,
+        default="",
+        dest="prefix",
+        help="will add the prefix to results and summary files that will store results of MASH and comparision to the VMR Data produced by"
+        "ICTV combines both sets of this data into a single csv file. "
+        "Use this flag if you want to run multiple times and keep the results files without manual renaming of files",
+    )
+    parser.add_argument(
+        "-d",
+        "--distance",
+        type=float,
+        default=0.2,
+        dest="dist",
+        help="Will change the mash distance for the intial seraching for close relatives. We suggesting keeping at 0.2"
+        " If this results in the phage not being classified, then increasing to 0.3 might result in an output that shows"
+        " the phage is a new genus. We have found increasing above 0.2 does not place the query in any current genus, only"
+        " provides the output files to demonstrate it falls outside of current genera",
+    )
+    parser.add_argument(
+        "--no-figures",
+        dest="Figure",
+        action="store_false",
+        help="Use this option if you don't want to generate Figures. This will speed up the time it takes to run the script - but you get no Figures. ",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        default=os.path.join(os.getcwd(), f"taxmyphage_results"),
+        dest="output",
+        help="Path to the output directory",
+    )
+    parser.add_argument(
+        "--add_genomes",
+        type=str,
+        default="",
+        dest="add_genomes",
+        help="Path to a fasta file containing genomes to add to the viridic. This will be added to the viridic and the viridic" 
+        " figure will be updated",
+    )
+
+    args, nargs = parser.parse_known_args()
+    verbose = args.verbose
+    #Defined and set some parameters
+    threads = args.threads
+    mash_dist = args.dist
+
+    #turn on ICECREAM reporting
+    if not verbose: ic.disable()
+
+    # this is the location of where the script and the databases are (instead of current_directory which is the users current directory)
+    VMR_path = args.VMR_file
+    blastdb_path = args.ICTV_db
+    ICTV_path = args.mash_index
+
+    print("Looking for database files...\n")
+
+    if os.path.exists(VMR_path):
+        print_ok(f"Found {VMR_path} as expected")
+    else:
+        print_error(f'File {VMR_path} does not exist will try downloading now')
+        print_error("Will download the current VMR now")
+        url = "https://ictv.global/vmr/current"
+        try:
+            create_folder(os.path.dirname(VMR_path))
+            wget.download(url, VMR_path)
+            print(f"\n{url} downloaded successfully!")
+        except Exception as e:
+            print(f"An error occurred while downloading {url}: {e}")
+
+    if os.path.exists(ICTV_path):
+        print_ok(f"Found {ICTV_path} as expected")
+    #else:
+    #    print_error(f'File {ICTV_path} does not exist, was it downloaded correctly?')
+    else:
+        print_error(f"File {ICTV_path} does not exist will create database now  ")
+        print_error("Will download the database now and create database")
+        url = "https://millardlab-inphared.s3.climb.ac.uk/ICTV_2023.msh"
+        try:
+            create_folder(os.path.dirname(ICTV_path))
+            wget.download(url, ICTV_path)
+            print(f"\n{url} downloaded successfully!")
+        except Exception as e:
+            print(f"An error occurred while downloading {url}: {e}")
+
+    check_programs()
+    check_blastDB(blastdb_path)
+
+    create_folder(args.output)
+
+    suffixes = ['fasta', 'fna', 'fsa', 'fa']
+    tmp_fasta = os.path.join(args.output, 'tmp.fasta')
+    # Create a multifasta file to parse line by line
+    num_genomes = create_files_and_result_paths(args.in_fasta, tmp_fasta, suffixes)
+
+    parser = SeqIO.parse(tmp_fasta, "fasta")
+
+    for genome in tqdm(parser, desc="Classifying", total=num_genomes):
+        results_path = os.path.join(args.output, genome.id)
+        print_ok(f"\nClassifying {genome.id} in result folder {results_path}...") 
+        Run(genome, results_path)
+
+    #clean up
+    os.remove(tmp_fasta)
