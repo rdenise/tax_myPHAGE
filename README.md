@@ -156,9 +156,9 @@ options:
 
 #### Personal database
 
-If you want to use your own database of genomes, then you can use the --perso_database flag. This will create a mash index of your genomes and use this for the initial search for close relatives. It will also create a blast database of your genomes and use this for the VIRIDIC-like analysis. 
+If you want to use your own database of genomes, then you can use the `--perso_database`` flag. This will create a mash index of your genomes and use this for the initial search for close relatives. It will also create a blast database of your genomes and use this for the VIRIDIC-like analysis. 
 
-The input file should be a fasta file of genomes and metadata. The metadata should be in a tab delimited file with the following columns "Genome_Id", "Lineage". "Genome_Id" should match the fasta headers. "Lineage" should be the taxonomy of the genome, everyname should be separate by a semicolon ";". If you Genome_id column is not called "Genome_Id" then you can use the --genome_ids flag to specify the name of the column.  
+The input file should be a fasta file of genomes and metadata. The metadata should be in a tab delimited file with the following columns `Genome_Id`, `Lineage`. `Genome_Id` should match the fasta headers. `Lineage` should be the taxonomy of the genome, everyname should be separate by a semicolon "`;`". If you Genome_id column is not called `Genome_Id` then you can use the `--genome_ids` flag to specify the name of the column.  
 
 ----------
 
