@@ -154,7 +154,7 @@ options:
 
 ----------
 
-##### Personal database
+#### Personal database
 
 If you want to use your own database of genomes, then you can use the --perso_database flag. This will create a mash index of your genomes and use this for the initial search for close relatives. It will also create a blast database of your genomes and use this for the VIRIDIC-like analysis. 
 
