@@ -128,10 +128,8 @@ options:
   -v, --verbose
   -t THREADS, --threads THREADS
                         Maximum number of threads that will be used
-  -i IN_FASTA, --input IN_FASTA
-                        Path to an input fasta file, or directory containing fasta files
-  --add_genomes ADD_GENOMES
-                        Path to a fasta file containing genomes to add to the viridic. This will be added to the viridic and the viridic figure will be updated
+  -i IN_FASTA [IN_FASTA ...], --input IN_FASTA [IN_FASTA ...]
+                        Path to an input fasta file(s), or directory containing fasta files
   -db ICTV_DB, --database ICTV_DB
                         Path to the database of genomes currently classified by the ICTV
   --mash_index MASH_INDEX
@@ -147,11 +145,22 @@ options:
   --no-figures          Use this option if you don't want to generate Figures. This will speed up the time it takes to run the script - but you get no Figures.
   -o OUTPUT, --output OUTPUT
                         Path to the output directory
+  --add_genomes ADD_GENOMES
+                        Path to a fasta file containing genomes to add to the viridic. This will be added to the viridic and the viridic figure will be updated
+  --perso_database      Use this option if you want to use your own genomes for the database
+  --genome_ids GENOME_IDS
+                        Name of the columns that contains genome_ids in the VMR file
 ```
 
 ----------
 
+##### Personal database
 
+If you want to use your own database of genomes, then you can use the --perso_database flag. This will create a mash index of your genomes and use this for the initial search for close relatives. It will also create a blast database of your genomes and use this for the VIRIDIC-like analysis. 
+
+The input file should be a fasta file of genomes and metadata. The metadata should be in a tab delimited file with the following columns "Genome_Id", "Lineage". "Genome_Id" should match the fasta headers. "Lineage" should be the taxonomy of the genome, everyname should be separate by a semicolon ";". If you Genome_id column is not called "Genome_Id" then you can use the --genome_ids flag to specify the name of the column.  
+
+----------
 
 #### Indicative run time  
 
