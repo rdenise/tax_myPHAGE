@@ -184,10 +184,12 @@ class PoorMansViridic:
         size_dict = self.size_dict
 
         genome_arr = np.array(list(M.keys()))
-        identity_arr = np.array(list(M.values()), dtype=object).reshape(-1, 1)
+        
         dfM = pd.DataFrame(
-            np.hstack([genome_arr, identity_arr]), columns=["A", "B", "identity_seq"]
+            genome_arr, columns=["A", "B"]
         )
+
+        dfM["identity_seq"] = M.values()
 
         dfM["idAB"] = dfM["identity_seq"].apply(lambda x: np.sum(x))
 
@@ -482,7 +484,7 @@ def get_level_lineage(name: str) -> str:
     """
 
     level_key = {
-        "Root": ["Viruses"],
+        "Root": ["Viruses", "root"],
         "Realm": ["viria", "satellitia", "viroidia", "viriformia"],
         "Subrealm": ["vira", "satellita", "viroida", "viriforma"],
         "Kingdom": ["virae", "satellitae", "viroidae", "viriformae"],
@@ -544,6 +546,8 @@ def fix_taxa_column(lineage: List[str], species_name: str, genome_id: str) -> st
         "Species": "s__",
     }
 
+    level = "Species" if not lineage else get_level_lineage(lineage[0])
+
     for name in lineage:
         level = get_level_lineage(name)
         try:
@@ -554,10 +558,14 @@ def fix_taxa_column(lineage: List[str], species_name: str, genome_id: str) -> st
         if level and prefix_taxa[level].endswith("_"):
             prefix_taxa[level] += name
 
-    if (level == "Species" or level == "Genus") and prefix_taxa["Species"].endswith(
-        "_"
-    ):
-        prefix_taxa["Species"] = f"s__{species_name}"
+    try:
+        if (level == "Species" or level == "Genus") and prefix_taxa["Species"].endswith(
+            "_"
+        ):
+            prefix_taxa["Species"] = f"s__{species_name}"
+    except Exception as e:
+        print(f"An error occurred while fixing the taxonomy: {e}")
+        sys.exit(f"{lineage} : {genome_id}")
 
     if prefix_taxa["Species"].endswith("_"):
         prefix_taxa["Species"] = f"s__{genome_id}"
@@ -570,7 +578,7 @@ def fix_taxa_column(lineage: List[str], species_name: str, genome_id: str) -> st
 
 def check_VMR(VMR_path):
     VMR_df = pd.read_table(VMR_path)
-    VMR_df = VMR_df.rename(columns={args.genome_ids: "Genome_id"})
+    VMR_df = VMR_df.rename(columns={args.genome_ids: "Genome_id", args.lineage: "Lineage"})
 
     records = VMR_df.to_dict("records")
     good_lineage = []
@@ -1387,6 +1395,13 @@ if __name__ == "__main__":
         default="Genome_id",
         type=str,
         help="Name of the columns that contains genome_ids in the VMR file",
+    )
+    parser.add_argument(
+        "--lineage",
+        dest="lineage",
+        default="Lineage",
+        type=str,
+        help="Name of the columns that contains the lineage in the VMR file",
     )
 
     args, nargs = parser.parse_known_args()
